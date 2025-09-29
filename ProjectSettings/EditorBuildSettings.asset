@@ -5,10 +5,19 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/Electronics Basics.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
+    path: Assets/Scenes/Introduction to resisiters.unity
+    guid: 8772a7e5e03e88f44ad5c29fb506a2df
+  - enabled: 1
+    path: Assets/Scenes/Series Resisters.unity
+    guid: ebc957afe2fd8314a852576826186c6d
+  - enabled: 1
+    path: Assets/Scenes/Parallel Resisters.unity
+    guid: b75d93d8ba5590d4890abb02f3f0f155
+  - enabled: 0
     path: Assets/Scenes/Electroninc module 3.unity
     guid: 437708361d3d72b47b3aeeccf1b0cf50
   m_configObjects:

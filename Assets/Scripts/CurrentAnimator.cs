@@ -9,7 +9,7 @@ public class CurrentAnimator : MonoBehaviour
     public float arrivalTolerance = 0.001f; // Tolerance for reaching a point
 
     // --- Private Variables ---
-    private float currentFlow = 0f;
+    private float currentFlow = 1.2f;
     private float moveSpeed;
     private int currentPointIndex = 0;
     private bool hasStarted = false; // Tracks initial placement
