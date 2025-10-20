@@ -4,7 +4,9 @@ using TMPro;
 
 public class SeriesCircuitManager : MonoBehaviour
 {
-    // Reuse the Resistor Data structure
+    // Define minimum resistance outside the loop to be used for safety
+    private const float MIN_RESISTANCE = 0.01f;
+
     [System.Serializable]
     public class ResistorData
     {
@@ -26,20 +28,34 @@ public class SeriesCircuitManager : MonoBehaviour
     public TextMeshProUGUI totalCurrentDisplay;
     public TextMeshProUGUI kVLDisplay; // For Vtotal = V1 + V2 + V3
 
-    // Call this setup method when the scene starts or a resistor value changes
     public void Start()
     {
         // Initial setup
         CalculateCircuit();
     }
 
-    public void OnResistanceChanged(float value)
+    // --- CRITICAL FUNCTION: Receives dynamic data from the Slider Controller ---
+    public void UpdateResistanceAndRecalculate(int resistorIndex, float newResistanceValue)
     {
-        // Note: You must link the UI slider events to this function.
-        // If using multiple sliders, pass the index or call a specific function per slider.
-        // For simplicity, we assume this is called when ANY R value changes.
-        CalculateCircuit();
+        // 1. Safety check and bounds check
+        if (resistorIndex >= 0 && resistorIndex < SeriesResistors.Count)
+        {
+            // 2. UPDATE THE RESISTANCE VALUE IN THE DATA LIST
+            // We ensure resistance cannot be negative or near zero.
+            SeriesResistors[resistorIndex].Resistance = Mathf.Max(newResistanceValue, MIN_RESISTANCE);
+
+            // 3. Immediately trigger the calculation with the new value
+            CalculateCircuit();
+        }
+        else
+        {
+            Debug.LogError($"Invalid resistor index ({resistorIndex}) passed from slider.");
+        }
     }
+
+
+    // --- DELETED: Removed the useless OnResistanceChanged(float value) placeholder ---
+
 
     public void CalculateCircuit()
     {
@@ -47,19 +63,29 @@ public class SeriesCircuitManager : MonoBehaviour
         float totalR = 0f;
         foreach (var rData in SeriesResistors)
         {
-            totalR += rData.Resistance;
+            // Use safe resistance value for calculation
+            totalR += Mathf.Max(rData.Resistance, MIN_RESISTANCE);
         }
 
         // 2. Calculate Total Current (I_total = V / R_total)
         float totalI = SourceVoltage / totalR;
+
+        // --- Error Guardrail Check ---
+        if (float.IsInfinity(totalI) || float.IsNaN(totalI))
+        {
+            totalI = 0f;
+        }
 
         // 3. Calculate Individual Voltage Drops (Vn = I_total * Rn)
         float totalVoltageDropSum = 0f;
 
         foreach (var rData in SeriesResistors)
         {
-            rData.VoltageDrop = totalI * rData.Resistance;
-            totalVoltageDropSum += rData.VoltageDrop; // Sum for KVL check
+            float safeResistance = Mathf.Max(rData.Resistance, MIN_RESISTANCE);
+
+            // Calculate voltage drop 
+            rData.VoltageDrop = totalI * safeResistance;
+            totalVoltageDropSum += rData.VoltageDrop;
 
             // 4. Update individual voltmeter displays
             rData.voltageDisplay.text = $"V: {rData.VoltageDrop:F2} V";
@@ -70,7 +96,7 @@ public class SeriesCircuitManager : MonoBehaviour
         totalCurrentDisplay.text = $"I_Total: {totalI:F2} A";
 
         // KVL display verifies that the drops equal the source voltage
-        kVLDisplay.text = $"KVL Check: V_Source ({SourceVoltage:F2}V) = V_Drops ({totalVoltageDropSum:F2}V)";
+        kVLDisplay.text = $"KVL Check: V_Source ({SourceVoltage:F2}V) ≈ V_Drops ({totalVoltageDropSum:F2}V)";
 
         // 6. Update Animation (Constant Current)
         if (CircuitAnimator != null)
