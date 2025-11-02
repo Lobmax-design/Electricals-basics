@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using TMPro; // Ensure you have this using directive for TextMeshProUGUI
+using System;
 
 public class ParallelCircuitManager : MonoBehaviour
 {
@@ -23,6 +24,9 @@ public class ParallelCircuitManager : MonoBehaviour
     public List<ResistorData> ParallelResistors; // Assign R1, R2, R3 data here
     public ParallelCircuitAnimator TotalCurrentAnimator; // Animator for the main wire
 
+    [Header("Optional: Junction Splitter")]
+    // Assign the JunctionSplitter here so it can be updated whenever currents change
+
     [Header("UI Readouts")]
     public TextMeshProUGUI totalResistanceDisplay;
     public TextMeshProUGUI totalCurrentDisplay;
@@ -39,13 +43,13 @@ public class ParallelCircuitManager : MonoBehaviour
     // This function will be linked to the "On Value Changed" event of the sliders.
     public void UpdateResistanceAndRecalculate(int resistorIndex, float newResistanceValue)
     {
+        Debug.Log($"[Manager] UpdateResistanceAndRecalculate idx={resistorIndex} val={newResistanceValue:F3}");
         if (resistorIndex >= 0 && resistorIndex < ParallelResistors.Count)
         {
-            // 1. Update the internal data structure with the new value
-            // We use Mathf.Max to ensure resistance can never be negative.
             ParallelResistors[resistorIndex].Resistance = Mathf.Max(newResistanceValue, 0.01f);
-
-            // 2. Immediately recalculate the entire circuit based on the change
+            // show current resistances
+            for (int i = 0; i < ParallelResistors.Count; i++)
+                Debug.Log($"[Manager] R{i+1} = {ParallelResistors[i].Resistance:F3}");
             CalculateCircuit();
         }
         else
@@ -55,37 +59,29 @@ public class ParallelCircuitManager : MonoBehaviour
     }
 
 
+    public event Action CurrentsUpdated;
+
     public void CalculateCircuit()
     {
-        // Define a minimum resistance threshold to prevent division by zero (short circuit)
         const float MIN_RESISTANCE = 0.01f;
-        float totalVoltageDropSum = 0f; // For KVL check, though V is constant in parallel.
-
-        // 1. Calculate Total Resistance (Reciprocal Sum)
         float reciprocalRSum = 0f;
         foreach (var rData in ParallelResistors)
         {
-            // Use Mathf.Max to ensure resistance is never zero when dividing
             float safeResistance = Mathf.Max(rData.Resistance, MIN_RESISTANCE);
             reciprocalRSum += 1f / safeResistance;
         }
-        float totalR = 1f / reciprocalRSum;
-
-        // 2. Voltage is Constant (V_branch = V_source)
+        float totalR = (reciprocalRSum > 0f) ? (1f / reciprocalRSum) : float.PositiveInfinity;
         float branchVoltage = SourceVoltage;
         float totalI = 0f;
 
-        // 3. Calculate Individual Branch Currents (In = V / Rn)
-        foreach (var rData in ParallelResistors)
+        for (int i = 0; i < ParallelResistors.Count; i++)
         {
-            // Use the actual resistance value for display, but safe resistance for calculation
+            var rData = ParallelResistors[i];
             float safeResistance = Mathf.Max(rData.Resistance, MIN_RESISTANCE);
-
             rData.BranchCurrent = branchVoltage / safeResistance;
-            totalI += rData.BranchCurrent; // Sum currents for KCL
+            totalI += rData.BranchCurrent;
 
             // Update individual displays (Constant V, Branch I)
-            // NOTE: We only display V_source, but the calculation needs safeR.
             rData.voltageDisplay.text = $"V: {branchVoltage:F2} V";
             rData.currentDisplay.text = $"I: {rData.BranchCurrent:F2} A";
 
@@ -94,19 +90,23 @@ public class ParallelCircuitManager : MonoBehaviour
             {
                 rData.animatorReference.SetCurrentFlow(rData.BranchCurrent);
             }
+
+            Debug.Log($"[Manager] Branch {i+1}: R={rData.Resistance:F3} Ohm -> I={rData.BranchCurrent:F4} A");
         }
 
-        // 4. Update Global Readouts and Animation
         totalResistanceDisplay.text = $"R_Total: {totalR:F2} Ω";
         totalCurrentDisplay.text = $"I_Total: {totalI:F2} A";
-
-        // KCL display verifies current summation
         KCLDisplay.text = $"KCL Check: I_Total ({totalI:F2}A) = Sum of I_Branches ({totalI:F2}A)";
+
+        Debug.Log($"[Manager] TotalR={totalR:F4} Ω TotalI={totalI:F4} A");
 
         if (TotalCurrentAnimator != null)
         {
-            // Main wire animation speed reflects the total current
             TotalCurrentAnimator.SetCurrentFlow(totalI);
         }
+
+        // Notify all splitters and listeners that currents have been updated
+        if (CurrentsUpdated != null)
+            CurrentsUpdated();
     }
 }
