@@ -5370,7 +5370,7 @@ MonoBehaviour:
   R1Slider: {fileID: 316808134}
   R2Slider: {fileID: 515774604}
   R3Slider: {fileID: 58540134}
-  invertR1: 1
+  invertR1: 0
   invertR2: 0
   invertR3: 0
 --- !u!1001 &1070216920
